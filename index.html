@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Swipe Love — Demo</title>
+<style>
+  :root{
+    --bg:#0f1720; --card-bg:#0b1220; --accent:#22c55e;
+    --muted:#94a3b8; --white:#e6eef6;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;}
+  body{background:linear-gradient(180deg,#071021 0%, #0f1720 100%); color:var(--white); display:flex; align-items:center; justify-content:center; padding:24px;}
+  .wrap{width:100%;max-width:920px;}
+  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  h1{margin:0;font-size:20px;letter-spacing:0.6px}
+  .hud{color:var(--muted);font-size:14px}
+  .game-area{position:relative;height:640px;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);border-radius:14px;padding:28px;box-shadow:0 8px 30px rgba(2,6,23,0.7);}
+  .card-slot{position:relative;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .card{
+    width:320px;height:460px;border-radius:12px;background:linear-gradient(180deg,#071124,#0b1220);box-shadow:0 10px 30px rgba(2,6,23,0.6);
+    display:flex;flex-direction:column;align-items:center;padding:18px;user-select:none;touch-action:none;
+    position:absolute;transition:transform 260ms cubic-bezier(.22,.9,.3,1),opacity 200ms;
+  }
+  .avatar{
+    width:240px;height:240px;border-radius:8px;margin-bottom:14px;background:#111;border:3px solid rgba(255,255,255,0.03);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .meta{width:100%;text-align:center}
+  .name{font-weight:700;font-size:20px}
+  .desc{font-size:13px;color:var(--muted);margin-top:6px}
+  .controls{display:flex;gap:14px;justify-content:center;margin-top:14px}
+  .btn{padding:12px 18px;border-radius:10px;background:#0b1220;border:1px solid rgba(255,255,255,0.04);color:var(--white);cursor:pointer;box-shadow:0 6px 18px rgba(2,6,23,0.55);font-weight:600}
+  .btn.no{background:linear-gradient(180deg,#2b2b2b,#202020)}
+  .btn.like{background:linear-gradient(180deg,#0b6039,#0e8f59)}
+  .small{font-size:13px;color:var(--muted);margin-top:8px;text-align:center}
+  .overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,rgba(2,6,23,0.6),rgba(2,6,23,0.75));z-index:50}
+  .panel{background:#061224;border-radius:12px;padding:20px;width:92%;max-width:540px;color:var(--white);box-shadow:0 8px 30px rgba(0,0,0,0.6)}
+  .panel h2{margin:0 0 8px 0}
+  .panel p{margin:0 0 12px 0;color:var(--muted)}
+  .muted{color:var(--muted);font-size:13px}
+  .count{font-weight:700;color:var(--accent)}
+  .match-screen, .gameover-screen{display:flex;flex-direction:column;align-items:center;gap:12px;padding:18px;text-align:center}
+  .tiny{font-size:12px;color:var(--muted)}
+  /* swipe hint */
+  .hint{position:absolute;left:18px;bottom:18px;color:var(--muted);font-size:13px}
+  /* responsive */
+  @media (max-width:520px){
+    .card{width:86%;height:60vh}
+    .avatar{width:180px;height:180px}
+  }
+  /* like/no badge */
+  .badge-like, .badge-no{position:absolute;top:28px;padding:10px 16px;border-radius:10px;font-weight:800;letter-spacing:1px;opacity:0;transform:scale(.95);transition:opacity 120ms,transform 120ms}
+  .badge-like{right:18px;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.16);color:#9ffdca}
+  .badge-no{left:18px;background:rgba(239,68,68,0.09);border:1px solid rgba(239,68,68,0.12);color:#ffb3b3}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Swipe Love — Mini Demo</h1>
+    <div class="hud">Swipes: <span id="swipeCount">0</span>/30 · <span id="status">Alive</span></div>
+  </header>
+
+  <main class="game-area" id="gameArea">
+    <div class="card-slot" id="slot"></div>
+
+    <div class="hint">Drag card → or ← (touch & mouse). Or press buttons below.</div>
+
+    <div style="position:relative;z-index:2;margin-top:12px;display:flex;justify-content:center">
+      <div class="controls">
+        <button class="btn no" id="noBtn">◀ NO</button>
+        <button class="btn" id="undoBtn" title="Undo last swipe (1) ▶" style="display:none">↺ Undo</button>
+        <button class="btn like" id="likeBtn">LIKE ▶</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- overlays -->
+<div class="overlay" id="howTo" style="">
+  <div class="panel">
+    <h2>How to play</h2>
+    <p class="muted">스와이프해서 선택해. 오른쪽 = Like, 왼쪽 = No. 랜덤으로 매치가 될 수 있고, 매치가 되면 게임 종료 (축하). 30번 스와이프까지 매치가 안 되면 Game Over.</p>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" id="startBtn">Start</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="endOverlay" style="display:none">
+  <div class="panel" id="endPanel">
+    <!-- filled by JS -->
+  </div>
+</div>
+
+<script>
+/*
+  Swipe Love Demo
+  - 30 characters generated
+  - pixel avatars generated via SVG
+  - drag to swipe left/right or use buttons
+  - random match on a "Like" (right swipe)
+  - ends on match or after 30 swipes -> Game Over
+*/
+
+const TYPES = [
+  {tag:'Male', palette:['#7be495','#083a3a','#083a3a']},
+  {tag:'Female', palette:['#ffd6e0','#48323a','#222']},
+  {tag:'Queer', palette:['#ffb84d','#8a3ffc','#2b2b2b']},
+  {tag:'Otaku', palette:['#b6d0ff','#2b3a6a','#121212']},
+  {tag:'Metal', palette:['#d6d6d6','#0b0b0b','#6f0f0f']},
+  {tag:'Punk', palette:['#9bfdd8','#2b2b2b','#ff4d6d']},
+  {tag:'Dead', palette:['#bfbfbf','#111','#8b0000']},
+  {tag:'Mokkan', palette:['#f0e68c','#2c2c2c','#4a2b0f']},
+];
+
+const NAMES = [
+  "Ash","Rin","Kai","Mitsu","Jae","Noa","Zed","Lux","Rey","Ichi","Mako","Nova",
+  "Skye","Tori","Vex","Ryu","Dawn","Echo","Blair","Nyx","Kira","Gus","Bo","Odin",
+  "Vera","Sable","Rune","Hex","Mori","Poe"
+];
+
+// build 30 character objects
+let characters = Array.from({length:30}).map((_,i)=>{
+  const type = TYPES[i % TYPES.length];
+  const name = NAMES[i % NAMES.length] + (i>7?(' '+(Math.floor(i/8)+1)):'');
+  const style = ['normal','otaku','metal','punk','mohawk','nerd','emo','skater'][i%8];
+  // seed for avatar pattern
+  const seed = Math.floor(Math.random()*9999) + i*31;
+  return {id:i, name, type: type.tag, palette:type.palette, style, seed};
+});
+
+// game state
+let idx = 0; // index in shuffled deck
+let deck = shuffleArray([...characters]);
+let swipes = 0;
+let matched = false;
+const MAX_SWIPES = 30;
+const slot = document.getElementById('slot');
+const swipeCountEl = document.getElementById('swipeCount');
+const statusEl = document.getElementById('status');
+const howTo = document.getElementById('howTo');
+const endOverlay = document.getElementById('endOverlay');
+const endPanel = document.getElementById('endPanel');
+const startBtn = document.getElementById('startBtn');
+const likeBtn = document.getElementById('likeBtn');
+const noBtn = document.getElementById('noBtn');
+const undoBtn = document.getElementById('undoBtn');
+
+let history = []; // store {card,dir}
+
+startBtn.onclick = ()=>{ howTo.style.display='none'; renderStack(); };
+likeBtn.onclick = ()=> programSwipe('right');
+noBtn.onclick = ()=> programSwipe('left');
+undoBtn.onclick = ()=> undoSwipe();
+
+function renderStack(){
+  slot.innerHTML = '';
+  // render top 3 for depth
+  const topN = Math.min(3, deck.length);
+  for(let i=topN-1;i>=0;i--){
+    const card = makeCard(deck[i], i);
+    card.style.zIndex = 100 + i;
+    slot.appendChild(card);
+  }
+  updateHud();
+}
+
+function makeCard(char, depthIndex){
+  const c = document.createElement('div');
+  c.className='card';
+  c.dataset.id = char.id;
+  c.style.transform = `translateY(${depthIndex*6}px) scale(${1 - depthIndex*0.02})`;
+  // badge
+  const likeBadge = document.createElement('div');
+  likeBadge.className='badge-like'; likeBadge.textContent='LIKE';
+  const noBadge = document.createElement('div');
+  noBadge.className='badge-no'; noBadge.textContent='NO';
+  c.appendChild(likeBadge); c.appendChild(noBadge);
+
+  // avatar
+  const avatar = document.createElement('div'); avatar.className='avatar';
+  avatar.innerHTML = generateAvatarSVG(char);
+  c.appendChild(avatar);
+
+  // meta
+  const meta = document.createElement('div'); meta.className='meta';
+  const name = document.createElement('div'); name.className='name'; name.textContent = char.name;
+  const desc = document.createElement('div'); desc.className='desc'; desc.textContent = `${char.type} · ${char.style}`;
+  meta.appendChild(name); meta.appendChild(desc);
+  c.appendChild(meta);
+
+  // attach drag handlers only for top card
+  if(depthIndex === 0){
+    attachDragHandlers(c, likeBadge, noBadge);
+  } else {
+    c.style.pointerEvents='none';
+  }
+
+  return c;
+}
+
+/* Drag/swipe handling */
+function attachDragHandlers(card, likeBadge, noBadge){
+  let startX=0, startY=0, originX=0, originY=0, dragging=false;
+  const rect = () => card.getBoundingClientRect();
+  const threshold = 120;
+  function down(e){
+    dragging = true;
+    card.style.transition='none';
+    startX = (e.touches?e.touches[0].clientX:e.clientX);
+    startY = (e.touches?e.touches[0].clientY:e.clientY);
+    originX = 0; originY = 0;
+  }
+  function move(e){
+    if(!dragging) return;
+    const x = (e.touches?e.touches[0].clientX:e.clientX);
+    const y = (e.touches?e.touches[0].clientY:e.clientY);
+    const dx = x - startX;
+    const dy = y - startY;
+    originX = dx; originY = dy;
+    const rot = dx/18;
+    card.style.transform = `translate(${dx}px, ${dy}px) rotate(${rot}deg)`;
+    const v = Math.min(1, Math.abs(dx)/threshold);
+    if(dx>0){
+      likeBadge.style.opacity = v; likeBadge.style.transform='scale(1)';
+      noBadge.style.opacity = 0;
+    } else {
+      noBadge.style.opacity = v; noBadge.style.transform='scale(1)';
+      likeBadge.style.opacity = 0;
+    }
+  }
+  function up(e){
+    if(!dragging) return;
+    dragging = false;
+    const dx = originX;
+    const dy = originY;
+    card.style.transition='transform 260ms cubic-bezier(.22,.9,.3,1)';
+    if(dx > threshold){
+      // like (right swipe)
+      swipeResolve(card, 'right');
+    } else if(dx < -threshold){
+      swipeResolve(card, 'left');
+    } else {
+      // snap back
+      likeBadge.style.opacity = 0; noBadge.style.opacity = 0;
+      card.style.transform = '';
+    }
+  }
+  // mouse
+  card.addEventListener('mousedown', down);
+  window.addEventListener('mousemove', move);
+  window.addEventListener('mouseup', up);
+  // touch
+  card.addEventListener('touchstart', down, {passive:false});
+  window.addEventListener('touchmove', move, {passive:false});
+  window.addEventListener('touchend', up);
+}
+
+function programSwipe(dir){
+  const topCard = slot.querySelector('.card');
+  if(!topCard) return;
+  if(dir==='right'){
+    topCard.style.transition='transform 260ms cubic-bezier(.22,.9,.3,1)';
+    topCard.style.transform = 'translateX(1000px) rotate(18deg)';
+    swipeResolve(topCard, 'right');
+  } else {
+    topCard.style.transition='transform 260ms cubic-bezier(.22,.9,.3,1)';
+    topCard.style.transform = 'translateX(-1000px) rotate(-18deg)';
+    swipeResolve(topCard, 'left');
+  }
+}
+
+function swipeResolve(cardEl, dir){
+  // mark badges invisible after swipe
+  const bL = cardEl.querySelector('.badge-like'), bN = cardEl.querySelector('.badge-no');
+  bL.style.opacity = 0; bN.style.opacity = 0;
+  // remove top of deck
+  const id = Number(cardEl.dataset.id);
+  const cardIndex = deck.findIndex(d=>d.id===id);
+  const cardObj = deck[cardIndex];
+  // animate out then remove
+  setTimeout(()=>{
+    // remove from deck
+    deck.splice(cardIndex,1);
+    history.push({card:cardObj,dir});
+    swipes++;
+    updateHud();
+    // process match logic only on 'right'
+    if(dir==='right' && randomMatchChance(cardObj)){
+      matched = true;
+      showMatchScreen(cardObj);
+    } else {
+      if(swipes >= MAX_SWIPES){
+        showGameOver();
+      } else {
+        renderStack();
+      }
+    }
+  }, 220);
+}
+
+/* Simple random match logic
+   We'll make matching chance variable by 'style' to feel a bit varied.
+*/
+function randomMatchChance(card){
+  const base = 0.18; // 18% base chance
+  const styleMods = {
+    'normal': 0.02, 'otaku': -0.03, 'metal': 0.05, 'punk': 0.03, 'mohawk':0.04,
+    'nerd': -0.02, 'emo': 0.01, 'skater': 0.03
+  };
+  const mod = styleMods[card.style] ?? 0;
+  const chance = Math.max(0.06, base + mod + (Math.random()-0.5)*0.06);
+  return Math.random() < chance;
+}
+
+function showMatchScreen(card){
+  endOverlay.style.display = '';
+  endPanel.innerHTML = `
+    <div class="match-screen">
+      <h2>🎉 It's a match!</h2>
+      <div style="width:220px;height:220px;border-radius:8px;overflow:hidden;background:#08101a;display:flex;align-items:center;justify-content:center">
+        ${generateAvatarSVG(card,220)}
+      </div>
+      <div class="tiny">You liked <strong>${card.name}</strong> (${card.type} · ${card.style})</div>
+      <div class="small">Swipes used: <span class="count">${swipes}</span></div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn" onclick="restartGame()">Play again</button>
+        <button class="btn" onclick="closeOverlay()">Close</button>
+      </div>
+    </div>
+  `;
+  statusEl.textContent = 'Matched';
+}
+
+function showGameOver(){
+  endOverlay.style.display = '';
+  endPanel.innerHTML = `
+    <div class="gameover-screen">
+      <h2>Game Over</h2>
+      <div class="tiny">30 swipes, no matches. The universe is dramatic.</div>
+      <div class="small">Try again — the deck reshuffles each run.</div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn" onclick="restartGame()">Restart</button>
+        <button class="btn" onclick="closeOverlay()">Close</button>
+      </div>
+    </div>
+  `;
+  statusEl.textContent = 'Game Over';
+}
+
+function closeOverlay(){
+  endOverlay.style.display = 'none';
+}
+
+function restartGame(){
+  deck = shuffleArray([...characters]);
+  swipes = 0; matched=false; history=[];
+  idx = 0;
+  updateHud();
+  endOverlay.style.display = 'none';
+  renderStack();
+}
+
+/* Undo: allow undo once when available */
+function undoSwipe(){
+  if(history.length===0) return;
+  const last = history.pop();
+  deck.unshift(last.card);
+  swipes = Math.max(0, swipes-1);
+  renderStack();
+  updateHud();
+}
+
+/* HUD update */
+function updateHud(){
+  swipeCountEl.textContent = swipes;
+  if(swipes >= MAX_SWIPES){
+    statusEl.textContent = 'Game Over';
+  } else if(matched){
+    statusEl.textContent = 'Matched';
+  } else {
+    statusEl.textContent = 'Alive';
+  }
+  undoBtn.style.display = history.length>0 ? '' : 'none';
+}
+
+/* Utilities */
+function shuffleArray(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]] = [arr[j],arr[i]];
+  }
+  return arr;
+}
+
+/* Avatar generator: small pixel-art SVG
+   Uses an 8x8 grid, palette from char.palette
+*/
+function generateAvatarSVG(char, size=240){
+  // deterministic pseudo-random from seed
+  const rnd = mulberry32(char.seed || (char.id*9973 + 12345));
+  const grid = 8;
+  const cell = Math.floor(size/grid);
+  const colors = char.palette;
+  // pick base/background colors deterministically
+  const skin = colors[0];
+  const hair = colors[1];
+  const accent = colors[2];
+  // pattern: create face center, hair top, accessory by style
+  const pixels = [];
+  for(let y=0;y<grid;y++){
+    for(let x=0;x<grid;x++){
+      let col = '#0b1220'; // default dark
+      // face area middle
+      if(x>=2 && x<=5 && y>=2 && y<=5) col = skin;
+      // eyes
+      if((x===2||x===5) && y===3) col = '#070707';
+      // hair top rows
+      if(y<=1 && x>=1 && x<=6) col = hair;
+      // add style-specific features
+      if(char.style === 'mohawk'){
+        if(x===3 && y<=2) col = accent;
+        if(x===4 && y<=2) col = accent;
+      }
+      if(char.style === 'punk'){
+        if(y<=1 && (x===1||x===6)) col = accent;
+        if(x===0 && (y===3||y===4)) col = accent;
+      }
+      if(char.style === 'metal'){
+        if(y>=5 && x>=1 && x<=6) col = '#222';
+        if(x===1 && y===4) col = accent;
+      }
+      if(char.style === 'otaku'){
+        if(x===6 && y===2) col = accent;
+        if(x===1 && y===5) col = '#111';
+      }
+      if(char.style === 'nerd'){
+        if((x===1 && y===3) || (x===6 && y===3)) col = '#333';
+        if(x===2 && y===4) col = accent;
+      }
+      // random noise for uniqueness
+      if(Math.abs(rnd()*10 - 5) < 0.25) {
+        if(Math.random()>0.92) col = accent;
+      }
+      pixels.push({x,y,col});
+    }
+  }
+  // build svg
+  let svg = `<svg viewBox="0 0 ${grid} ${grid}" width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">`;
+  svg += `<rect width="${grid}" height="${grid}" fill="#08121a"/>`;
+  pixels.forEach(p=>{
+    svg += `<rect x="${p.x}" y="${p.y}" width="1" height="1" fill="${p.col}"/>`;
+  });
+  // small style badge lower-right
+  svg += `<rect x="${grid-2}" y="${grid-2}" width="2" height="2" fill="${accent}" rx="0.2"/>`;
+  svg += `</svg>`;
+  return svg;
+}
+
+// deterministic RNG
+function mulberry32(a) {
+  return function() {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    var t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  }
+}
+
+/* start with overlay visible; but pre-render deck */
+renderStack();
+
+/* allow pressing left/right keys */
+window.addEventListener('keydown', (e)=>{
+  if(howTo.style.display !== 'none') return;
+  if(e.key === 'ArrowLeft') programSwipe('left');
+  if(e.key === 'ArrowRight') programSwipe('right');
+});
+</script>
+</body>
+</html>
