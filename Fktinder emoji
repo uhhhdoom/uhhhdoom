@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Swipe Dating Game</title>
+<style>
+  body { margin:0; font-family:sans-serif; background:#111; color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; }
+  #game, #gameOver { display:none; flex-direction:column; align-items:center; justify-content:center; }
+  #instructions { text-align:center; margin-bottom:20px; }
+  #card { width:200px; height:200px; margin-bottom:20px; background:#333; display:flex; align-items:center; justify-content:center; font-size:50px; border:4px solid #fff; border-radius:10px; user-select:none; }
+  #buttons { display:flex; gap:20px; }
+  .btn { padding:10px 20px; font-size:20px; border:none; border-radius:5px; cursor:pointer; }
+  .no { background:#e74c3c; color:#fff; }
+  .like { background:#2ecc71; color:#fff; }
+  #gameOver { font-size:30px; text-align:center; }
+</style>
+</head>
+<body>
+
+<div id="instructions">
+  <h1>Swipe Dating Game</h1>
+  <p>How to Play: Swipe right (Like) or left (No) on characters.<br>Match with someone within 30 swipes!</p>
+  <button id="startBtn" class="btn like">Start Game</button>
+</div>
+
+<div id="game">
+  <div id="card">🙂</div>
+  <div id="buttons">
+    <button class="btn no" id="noBtn">No</button>
+    <button class="btn like" id="likeBtn">Like</button>
+  </div>
+  <p id="counter">Swipe 0 / 30</p>
+</div>
+
+<div id="gameOver">
+  <p id="result">Game Over!</p>
+  <button id="restartBtn" class="btn like">Restart</button>
+</div>
+
+<script>
+const characters = [
+  "👨","👩","🧑‍🦱","🧑‍🦰","🧑‍🦳","🧑‍🦲","🧔","🧔‍♂️","🧔‍♀️",
+  "🧑‍🎤","🧑‍🚀","🧑‍🎨","🧑‍🏫","🧑‍🔧","👩‍🎤","👩‍🚀","👩‍🎨","👩‍🏫","👩‍🔧",
+  "🧑‍💻","👨‍💻","👩‍💻","🧑‍🍳","👨‍🍳","👩‍🍳","🧑‍🔬","👨‍🔬","👩‍🔬","🧑‍🚒"
+];
+let swipeCount = 0;
+let maxSwipes = 30;
+
+const instructions = document.getElementById("instructions");
+const game = document.getElementById("game");
+const gameOver = document.getElementById("gameOver");
+const card = document.getElementById("card");
+const counter = document.getElementById("counter");
+const result = document.getElementById("result");
+const startBtn = document.getElementById("startBtn");
+const restartBtn = document.getElementById("restartBtn");
+const likeBtn = document.getElementById("likeBtn");
+const noBtn = document.getElementById("noBtn");
+
+function randomChar() {
+  return characters[Math.floor(Math.random() * characters.length)];
+}
+
+function updateCard() {
+  card.textContent = randomChar();
+  counter.textContent = `Swipe ${swipeCount} / ${maxSwipes}`;
+}
+
+function swipe(direction) {
+  swipeCount++;
+  if (Math.random() < 0.3 && direction === "like") { // 30% chance match
+    game.style.display = "none";
+    gameOver.style.display = "flex";
+    result.textContent = "🎉 You Matched! 🎉";
+  } else if (swipeCount >= maxSwipes) {
+    game.style.display = "none";
+    gameOver.style.display = "flex";
+    result.textContent = "💔 Game Over!";
+  } else {
+    updateCard();
+  }
+}
+
+startBtn.onclick = () => {
+  instructions.style.display = "none";
+  game.style.display = "flex";
+  swipeCount = 0;
+  updateCard();
+};
+
+restartBtn.onclick = () => {
+  gameOver.style.display = "none";
+  instructions.style.display = "flex";
+};
+
+likeBtn.onclick = () => swipe("like");
+noBtn.onclick = () => swipe("no");
+
+// Touch events for mobile/iPad
+let startX = 0;
+card.addEventListener("touchstart", e => { startX = e.touches[0].clientX; });
+card.addEventListener("touchend", e => {
+  let endX = e.changedTouches[0].clientX;
+  if(endX - startX > 30) swipe("like");
+  else if(startX - endX > 30) swipe("no");
+});
+</script>
+
+</body>
+</html>
